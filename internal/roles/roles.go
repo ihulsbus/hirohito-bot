@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-package channels
+package roles
 
 import (
 	"errors"
@@ -31,28 +31,37 @@ import (
 // Constructor
 type DiscordClient interface{}
 
-type Channels struct {
+type Roles struct {
 	discordClient *discordgo.Session
 }
 
-func ChannelsConstructor(client *discordgo.Session) *Channels {
-	return &Channels{
+func RolesConstructor(client *discordgo.Session) *Roles {
+	return &Roles{
 		discordClient: client,
 	}
 }
 
-func (c Channels) CreateTextChannel(guildID string, channelData discordgo.GuildChannelCreateData) (*discordgo.Channel, error) {
-	len := len(channelData.Name)
-	if len < 2 || len > 100 {
-		return nil, fmt.Errorf("channel name length must be between 2 and 100 characters. current length: %d", len)
+func (r Roles) RetrieveRoles(guildID string) ([]*discordgo.Role, error) {
+	roles, err := r.discordClient.GuildRoles(guildID)
+	if err != nil {
+		return nil, err
 	}
 
-	channel, err := c.discordClient.GuildChannelCreateComplex(guildID, channelData)
-	if err != nil {
-		errMsg := fmt.Sprintf("Channel creation failed. Error was: %s", err)
+	return roles, nil
+}
 
-		if channel.ID != "" {
-			_, err := c.discordClient.ChannelDelete(channel.ID)
+func (r Roles) CreateRole(guildID string, data *discordgo.RoleParams) (*discordgo.Role, error) {
+	len := len(data.Name)
+	if len < 2 || len > 100 {
+		return nil, fmt.Errorf("role name length must be between 2 and 100 characters. current length: %d", len)
+	}
+
+	role, err := r.discordClient.GuildRoleCreate(guildID, data)
+	if err != nil {
+		errMsg := fmt.Sprintf("Role creation failed. Error was: %s", err)
+
+		if role.ID != "" {
+			err := r.discordClient.GuildRoleDelete(guildID, role.ID)
 			if err != nil {
 				errMsg = fmt.Sprintf("%s. Additionally, the following error occured when reverting changes: %s", errMsg, err)
 			}
@@ -61,11 +70,11 @@ func (c Channels) CreateTextChannel(guildID string, channelData discordgo.GuildC
 		return nil, errors.New(errMsg)
 	}
 
-	return channel, nil
+	return role, nil
 }
 
-func (c Channels) DeleteTextChannel(channelID string) error {
-	_, err := c.discordClient.ChannelDelete(channelID)
+func (r Roles) DeleteRole(guildID, roleID string) error {
+	err := r.discordClient.GuildRoleDelete(guildID, roleID)
 	if err != nil {
 		return err
 	}

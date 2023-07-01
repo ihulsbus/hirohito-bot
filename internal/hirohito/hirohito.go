@@ -18,17 +18,24 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+
 package hirohito
 
 import (
 	"context"
 	c "hirohito/internal/config"
-	s "hirohito/internal/source"
+	h "hirohito/internal/helpers"
 
 	"github.com/bwmarrin/discordgo"
 )
 
 var (
+	minLength = 2
+	maxLength = 100
+	trueBool  = true
+	falseBool = false
+
+	// less typing by referencing
 	discordClient = c.Configuration.Discord.Client
 	logger        = c.Configuration.Global.Logger
 
@@ -37,20 +44,129 @@ var (
 	// of the command.
 	commands = []*discordgo.ApplicationCommand{
 		{
+			Name:        "ping",
+			Description: "ping the bot",
+		},
+		{
 			Name:        "source",
 			Description: "Get a link to the bot's source code",
+		},
+		{
+			Name:         "createjoinablechannel",
+			Description:  "Create a joinable channel",
+			DMPermission: &falseBool,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "channelname",
+					Description: "name of the channel to be created",
+					MinLength:   &minLength,
+					MaxLength:   maxLength,
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "topic",
+					Description: "topic of the channel to be created",
+					MinLength:   &minLength,
+					MaxLength:   maxLength,
+					Required:    true,
+				},
+			},
+		},
+		{
+			Name:         "deletejoinablechannel",
+			Description:  "Delete a joinable channel",
+			DMPermission: &falseBool,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "channelname",
+					Description: "name of the channel to be deleted",
+					MinLength:   &minLength,
+					MaxLength:   maxLength,
+					Required:    true,
+				},
+			},
+		},
+		{
+			Name:         "setuphirohito",
+			Description:  "Setup hirohito for your guild",
+			DMPermission: &falseBool,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "joinchannelid",
+					Description: "id of the channel people use to join joinable channels",
+					MinLength:   &minLength,
+					MaxLength:   maxLength,
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "adminchannelid",
+					Description: "id of the channel admins use to create joinable channels",
+					MinLength:   &minLength,
+					MaxLength:   maxLength,
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "joinablechannelscategoryid",
+					Description: "id of the category under which joinable channels must be created",
+					MinLength:   &minLength,
+					MaxLength:   maxLength,
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "anyoneroleid",
+					Description: `id of the "@everyone role"`,
+					MinLength:   &minLength,
+					MaxLength:   maxLength,
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "adminroleid",
+					Description: "id of the administrator role in the guild",
+					MinLength:   &minLength,
+					MaxLength:   maxLength,
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "moderatorroleid",
+					Description: "id of the moderators role in the guild",
+					MinLength:   &minLength,
+					MaxLength:   maxLength,
+					Required:    true,
+				},
+			},
 		},
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"source": s.Source,
+		"ping":                  ping,
+		"source":                source,
+		"createjoinablechannel": createJoinableChannel,
+		"deletejoinablechannel": deleteJoinableChannel,
+		"setuphirohito":         setupGuild,
 	}
 )
 
 func Hirohito(ctx context.Context) {
 	logger.Info("starting emperor hirohito")
 
-	// Register handler for incoming messages
+	hirohitoCtx, hirohitoCancel := context.WithCancel(ctx)
+	defer hirohitoCancel()
+
+	err := c.DataStore.SetupDatastore(hirohitoCtx)
+	if err != nil {
+		logger.Fatalf("error setting up datastore. Bot cannot function. Error: %s", err)
+	}
+
+	// Register handler for incoming commands
 	discordClient.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
 			h(s, i)
@@ -61,7 +177,9 @@ func Hirohito(ctx context.Context) {
 		logger.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	})
 
-	err := discordClient.Open()
+	discordClient.AddHandler(reactionHandler)
+
+	err = discordClient.Open()
 	if err != nil {
 		logger.Fatalf("Error opening discord session: %v", err)
 	}
@@ -70,7 +188,7 @@ func Hirohito(ctx context.Context) {
 	for i, v := range commands {
 		cmd, err := discordClient.ApplicationCommandCreate(discordClient.State.User.ID, "", v)
 		if err != nil {
-			logger.Panicf("Cannot create '%v' command: %v", v.Name, err)
+			logger.Errorf("Cannot create command '%v'. Error: %v", v.Name, err)
 		}
 		registeredCommands[i] = cmd
 	}
@@ -78,7 +196,9 @@ func Hirohito(ctx context.Context) {
 
 	logger.Infoln("Bot is now running. Press CTRL-C to exit.")
 
+	// wait for the context to report done and then do a cleanup
 	<-ctx.Done()
+
 	/*
 		We need to fetch the commands, since deleting requires the command ID.
 		We are doing this from the returned commands on line 70, because using
@@ -98,4 +218,8 @@ func Hirohito(ctx context.Context) {
 			logger.Panicf("Cannot delete '%v' command: %v", v.Name, err)
 		}
 	}
+}
+
+func ping(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	h.SendInteractionPingResponse(s, i)
 }

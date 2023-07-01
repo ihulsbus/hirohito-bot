@@ -18,14 +18,24 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+
 package config
 
 import (
+	"database/sql"
+
 	"errors"
 	"fmt"
+	c "hirohito/internal/channels"
+	d "hirohito/internal/datastore"
 	h "hirohito/internal/helpers"
-	m "hirohito/internal/models"
+	m "hirohito/internal/messages"
+	"hirohito/internal/models"
+	r "hirohito/internal/roles"
+	u "hirohito/internal/users"
 	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
@@ -34,12 +44,18 @@ import (
 
 var (
 	// Public
-	Configuration m.Config
+	Configuration models.Config
+	Channels      *c.Channels
+	Roles         *r.Roles
+	Users         *u.Users
+	Messages      *m.Messages
+	DataStore     *d.DataStore
 
 	// private
 	envBinds []string = []string{
 		"loglevel",
 		"discord_token",
+		"datastore_path",
 	}
 )
 
@@ -79,14 +95,6 @@ func initLogging() {
 func initDiscord() error {
 	var err error
 
-	prefix := viper.GetString("prefix")
-	if prefix == "" {
-		Configuration.Global.Logger.Warn("no discord prefix provided, setting the default: !")
-		Configuration.Discord.Prefix = "!"
-	} else {
-		Configuration.Discord.Prefix = prefix
-	}
-
 	token := viper.GetString("discord_token")
 	if token == "" {
 		return errors.New("discord token not provided or not found")
@@ -101,6 +109,22 @@ func initDiscord() error {
 	return err
 }
 
+func initDatastore() error {
+
+	path := viper.GetString("datastore_path")
+	if path == "" {
+		return errors.New("datastore path not provided or not found")
+	}
+
+	db, err := sql.Open("sqlite3", path)
+	if err != nil {
+		log.Fatalf("Unable to open the datastore: %v", err)
+	}
+	Configuration.DataStore.Client = db
+
+	return nil
+}
+
 func init() {
 
 	// Build config
@@ -112,10 +136,23 @@ func init() {
 	// Configure logger
 	initLogging()
 
+	// Configure datastore
+	err = initDatastore()
+	if err != nil {
+		Configuration.Global.Logger.Fatalf("datastore could not be opened: %v. The bot cannot function. Exiting..", err)
+	}
+
 	// Configure Discord Client
 	err = initDiscord()
 	if err != nil {
 		Configuration.Global.Logger.Fatalf("no discord client could be created: %v. The bot cannot function. Exiting..", err)
 	}
+
+	// init libraries
+	DataStore = d.DataStoreConstructor(Configuration.DataStore.Client)
+	Channels = c.ChannelsConstructor(Configuration.Discord.Client)
+	Roles = r.RolesConstructor(Configuration.Discord.Client)
+	Users = u.UsersConstructor(Configuration.Discord.Client)
+	Messages = m.MessagesConstructor(Configuration.Discord.Client)
 
 }

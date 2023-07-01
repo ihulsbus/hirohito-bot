@@ -18,24 +18,15 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-package models
+
+package hirohito
 
 import (
-	log "github.com/sirupsen/logrus"
+	h "hirohito/internal/helpers"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-type Config struct {
-	Global  GlobalConfig
-	Discord DiscordConfig
-}
-
-type GlobalConfig struct {
-	Logger *log.Logger
-}
-
-type DiscordConfig struct {
-	Prefix string
-	Client *discordgo.Session
+func source(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	h.SendInteractionResponse(s, i, "Source code can be found at https://github.com/ihulsbus/hirohito-bot")
 }
