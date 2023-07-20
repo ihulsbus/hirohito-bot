@@ -29,7 +29,7 @@ RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build cmd/hirohito/hirohito.go
 FROM ${DISTROLESS_IMAGE}
 
 # Copy our static executable.
-COPY --from=builder /go/bin/hirohito /build/hirohito
+COPY --from=builder /build/hirohito /go/bin/hirohito
 
 # Run the hello binary.
 ENTRYPOINT ["/go/bin/hirohito"]
