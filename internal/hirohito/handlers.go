@@ -143,5 +143,3 @@ func guildLeaveHandler(s *discordgo.Session, m *discordgo.GuildDelete) {
 		return
 	}
 }
-
-}
