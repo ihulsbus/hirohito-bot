@@ -1,4 +1,4 @@
-ARG  BUILDER_IMAGE=golang:1.20
+ARG  BUILDER_IMAGE=golang:1.18
 ARG  DISTROLESS_IMAGE=gcr.io/distroless/base
 ############################
 # STEP 1 build executable binary
@@ -19,7 +19,7 @@ RUN go mod verify
 
 
 # Build the binary.
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build cmd/hirohito/hirohito.go
+RUN CGO_ENABLED=1 go build cmd/hirohito/hirohito.go
 
 ############################
 # STEP 2 build a small image
