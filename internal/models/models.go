@@ -56,3 +56,10 @@ type GuildInformation struct {
 	AdminRoleID                string
 	ModeratorRoleID            string
 }
+
+type ArchivingInformation struct {
+	GuildID             string
+	Auto                int // 0 == false, 1 == true
+	Interval            int // Interval in days between check and last channel message
+	ArchivingCategoryID string
+}

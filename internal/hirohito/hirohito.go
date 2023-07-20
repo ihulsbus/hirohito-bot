@@ -24,7 +24,6 @@ package hirohito
 import (
 	"context"
 	c "hirohito/internal/config"
-	h "hirohito/internal/helpers"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -34,6 +33,8 @@ var (
 	maxLength = 100
 	trueBool  = true
 	falseBool = false
+
+	started bool = false
 
 	// less typing by referencing
 	discordClient = c.Configuration.Discord.Client
@@ -90,8 +91,8 @@ var (
 			},
 		},
 		{
-			Name:         "setuphirohito",
-			Description:  "Setup hirohito for your guild",
+			Name:         "setup",
+			Description:  "Setup the bot for your guild",
 			DMPermission: &falseBool,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -147,11 +148,9 @@ var (
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"ping":                  ping,
-		"source":                source,
 		"createjoinablechannel": createJoinableChannel,
 		"deletejoinablechannel": deleteJoinableChannel,
-		"setuphirohito":         setupGuild,
+		"setup":                 setupGuild,
 	}
 )
 
@@ -178,6 +177,8 @@ func Hirohito(ctx context.Context) {
 	})
 
 	discordClient.AddHandler(reactionHandler)
+	discordClient.AddHandler(guildJoinHandler)
+	discordClient.AddHandler(guildLeaveHandler)
 
 	err = discordClient.Open()
 	if err != nil {
@@ -194,6 +195,7 @@ func Hirohito(ctx context.Context) {
 	}
 	defer discordClient.Close()
 
+	started = true
 	logger.Infoln("Bot is now running. Press CTRL-C to exit.")
 
 	// wait for the context to report done and then do a cleanup
@@ -218,8 +220,4 @@ func Hirohito(ctx context.Context) {
 			logger.Panicf("Cannot delete '%v' command: %v", v.Name, err)
 		}
 	}
-}
-
-func ping(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	h.SendInteractionPingResponse(s, i)
 }

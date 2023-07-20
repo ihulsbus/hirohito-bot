@@ -104,7 +104,7 @@ func setupGuild(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	err = c.DataStore.CreateGuildRecord(guildInfo)
+	err = c.DataStore.CreateGuildInfo(guildInfo)
 	if err != nil {
 		h.SendInteractionResponse(s, i, err.Error())
 		return

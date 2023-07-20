@@ -113,5 +113,35 @@ func reactionHandler(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 
 		c.Messages.UserLeftChannelMessage(m.GuildID, channel.ID, *m.Member.User)
 	}
+}
+
+func guildJoinHandler(s *discordgo.Session, m *discordgo.GuildCreate) {
+	if !started {
+		return
+	}
+
+	ownerDM, err := s.UserChannelCreate(m.OwnerID)
+	if err != nil {
+		logger.Errorf("unable to create DM channel with guild owner to send setup instructions: %s", err)
+		return
+	}
+
+	_, err = s.ChannelMessageSend(ownerDM.ID, `please set me up in your guild via the "setup" command.`)
+	if err != nil {
+		logger.Errorf("Unable to DM guild owner with setup instructions: %s", err)
+	}
+}
+
+func guildLeaveHandler(s *discordgo.Session, m *discordgo.GuildDelete) {
+	if !started {
+		return
+	}
+
+	err := c.DataStore.DeleteGuildInfo(m.Guild.ID)
+	if err != nil {
+		logger.Errorf("leave guild error: %s", err)
+		return
+	}
+}
 
 }
