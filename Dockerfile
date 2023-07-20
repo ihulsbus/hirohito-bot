@@ -1,4 +1,4 @@
-ARG  BUILDER_IMAGE=golang:buster
+ARG  BUILDER_IMAGE=golang:1.20
 ARG  DISTROLESS_IMAGE=gcr.io/distroless/base
 ############################
 # STEP 1 build executable binary
@@ -19,7 +19,7 @@ RUN go mod verify
 
 
 # Build the binary.
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-w -s" -o /go/bin/hirohito-bot
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build cmd/hirohito/hirohito.go
 
 ############################
 # STEP 2 build a small image
@@ -29,7 +29,7 @@ RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-w -s" -o /go/bin/h
 FROM ${DISTROLESS_IMAGE}
 
 # Copy our static executable.
-COPY --from=builder /go/bin/popsicles-bot /go/bin/hirohito-bot
+COPY --from=builder /go/bin/popsicles-bot /build/hirohito
 
 # Run the hello binary.
 ENTRYPOINT ["/go/bin/hirohito-bot"]
