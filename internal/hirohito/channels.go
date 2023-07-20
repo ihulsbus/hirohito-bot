@@ -25,6 +25,7 @@ import (
 	"fmt"
 	c "hirohito/internal/config"
 	h "hirohito/internal/helpers"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -48,7 +49,8 @@ func createJoinableChannel(s *discordgo.Session, i *discordgo.InteractionCreate)
 	for _, option := range i.ApplicationCommandData().Options {
 		switch option.Name {
 		case "channelname":
-			name = option.StringValue()
+			name = strings.ToLower(option.StringValue())
+			name = strings.ReplaceAll(name, " ", "-")
 		case "topic":
 			topic = option.StringValue()
 		default:
