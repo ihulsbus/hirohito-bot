@@ -91,7 +91,7 @@ func createJoinableChannel(s *discordgo.Session, i *discordgo.InteractionCreate)
 		&discordgo.PermissionOverwrite{
 			ID:    role.ID,
 			Type:  discordgo.PermissionOverwriteTypeRole,
-			Allow: 66560,
+			Allow: 197632,
 		},
 		&discordgo.PermissionOverwrite{
 			ID:   guildInfo.AnyoneRoleID,
